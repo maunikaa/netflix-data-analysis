@@ -1,0 +1,71 @@
+---
+title: "data_cleaning_typevariable"
+output: html_document
+date: "2025-11-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cleaning}
+netflix <- read.csv("/Users/sethu/Downloads/netflix_titles.csv")
+hulu <- read.csv("/Users/sethu/Downloads/hulu_titles 2.csv")
+prime <- read.csv("/Users/sethu/Downloads/amazon_prime_titles.csv")
+disney <- read.csv("/Users/sethu/Downloads/disney_plus_titles.csv")
+
+```
+Netflix Cleaning
+```{r netflix}
+before_clean <- head(netflix, 20)
+print(before_clean)
+
+netflix[["type"]] <- tolower(as.character(netflix[["type"]]))
+netflix <- netflix[which(netflix[["type"]] == "movie" | netflix[["type"]] == "tv show"), ]
+netflix[["type"]] <- factor(netflix[["type"]], 
+                            levels = c("movie", "tv show"), 
+                            labels = c(1, 2))
+netflix_after <- head(netflix, 10)
+print(netflix_after)
+
+```
+Hulu Cleaning
+``` {r hulu}
+before_clean <- head(hulu, 20)
+print(before_clean)
+
+hulu[["type"]] <- tolower(as.character(hulu[["type"]]))
+hulu <- hulu[which(hulu[["type"]] == "movie" | hulu[["type"]] == "tv show"), ]
+hulu[["type"]] <- factor(hulu[["type"]], 
+                            levels = c("movie", "tv show"), 
+                            labels = c(1, 2))
+hulu_after <- head(hulu, 10)
+print(hulu_after)
+```
+Amazon Prime Cleaning
+``` {r prime}
+before_clean <- head(prime, 20)
+print(before_clean)
+
+prime[["type"]] <- tolower(as.character(prime[["type"]]))
+prime <- prime[which(prime[["type"]] == "movie" | prime[["type"]] == "tv show"), ]
+prime[["type"]] <- factor(prime[["type"]], 
+                            levels = c("movie", "tv show"), 
+                            labels = c(1, 2))
+prime_after <- head(prime, 10)
+print(prime_after)
+```
+Disney Plus Cleaning
+```{r disney}
+before_clean <- head(disney, 20)
+print(before_clean)
+
+disney[["type"]] <- tolower(as.character(disney[["type"]]))
+disney <- disney[which(disney[["type"]] == "movie" | disney[["type"]] == "tv show"), ]
+disney[["type"]] <- factor(disney[["type"]], 
+                            levels = c("movie", "tv show"), 
+                            labels = c(1, 2))
+disney_after <- head(disney, 10)
+print(disney_after)
+
+```
