@@ -1,0 +1,143 @@
+---
+title: "Data Cleaning - Streaming Service Age Demographic Analysis"
+output: pdf_document
+date: "11/20/2025"
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+```
+
+# Data Loading & Preparation: 
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(readr)
+
+# Load datasets
+netflix <- read_csv("netflix_titles.csv")
+hulu <- read_csv("hulu_titles.csv")
+amazon <- read_csv("amazon_prime_titles.csv")
+disney <- read_csv("disney_plus_titles.csv")
+
+# Add platform identifiers
+netflix$platform <- "Netflix"
+hulu$platform <- "Hulu"
+amazon$platform <- "Amazon Prime"
+disney$platform <- "Disney+"
+
+# Combine all datasets
+all_data <- bind_rows(netflix, hulu, amazon, disney)
+
+# Preview raw data
+head(all_data)
+```
+
+# Variable Cleaning
+
+## Cleaning the Rating Variable
+
+```{r}
+# Standardize text format
+all_data$rating <- toupper(all_data$rating)
+all_data$rating <- trimws(all_data$rating)
+
+# Map vague or duplicate ratings to "Unrated"
+unrated_terms <- c("UR", "NR", "UNRATED", "NOT RATED", "NOT_RATE", "UNKNOWN", "TV-NR")
+all_data$rating[all_data$rating %in% unrated_terms] <- "Unrated"
+
+all_data$rating <- gsub("AGES_18_|18\\+", "R", all_data$rating)
+all_data$rating <- gsub("AGES_16_|16\\+", "TV-14", all_data$rating)
+all_data$rating <- gsub("13\\+", "PG-13", all_data$rating)
+all_data$rating <- gsub("ALL|ALL_AGES", "G", all_data$rating)
+all_data$rating <- gsub("^16$", "TV-14", all_data$rating)
+all_data$rating <- gsub("^7\\+$", "TV-Y7", all_data$rating)
+
+# Handle Missing Values
+all_data$rating[is.na(all_data$rating) | all_data$rating == ""] <- "Unknown"
+
+# Remove rows where rating is actually a duration
+all_data$rating[grepl("MIN|SEASON", all_data$rating)] <- NA
+
+cleaned_data <- all_data %>% filter(!is.na(rating) & rating != "Unknown" & rating != "Unrated")
+```
+
+## Cleaning the Release Year Variable
+
+```{r}
+# Ensure release_year is numeric
+cleaned_data$release_year <- as.numeric(cleaned_data$release_year)
+
+# Remove invalid years
+cleaned_data <- cleaned_data %>% filter(!is.na(release_year))
+
+newer_data <- cleaned_data %>% filter(release_year >= 2020)
+
+range(newer_data$release_year)
+```
+
+# Categorization
+
+```{r}
+# Define the mapping logic
+newer_data <- newer_data %>%
+  mutate(demographic = case_when(
+    # Kids: General audiences and young children
+    rating %in% c("G", "TV-G", "PG", "TV-PG", "TV-Y", "TV-Y7", "TV-Y7-FV") ~ "Kids",
+    
+    # Teens: Guidance suggested, 13-14+
+    rating %in% c("PG-13", "TV-14") ~ "Teens",
+    
+    # Adults: Mature audiences, 17-18+
+    rating %in% c("R", "TV-MA", "NC-17") ~ "Adults",
+    
+    TRUE ~ "Other"
+  )) %>%
+  filter(demographic != "Other") 
+
+newer_data$demographic <- factor(newer_data$demographic, levels = c("Adults", "Teens", "Kids"))
+```
+
+# Stacked Bar Chart
+## What age demographic do newer releases cater to?
+
+```{r}
+plot_data <- newer_data %>%
+  group_by(platform, demographic) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count))
+
+ggplot(newer_data, aes(x = platform, fill = demographic)) +
+  geom_bar(position = "fill", width = 0.7) + 
+  
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = c("Adults" = "#B22222",  # Red for Mature
+                               "Teens" = "#4682B4",   # Steel Blue for Teens
+                               "Kids" = "#76C7C0")) + # Teal for Kids
+  
+  labs(
+    title = "Age Demographic Distribution 
+    of Newer Releases (2020-Present)",
+    subtitle = "Comparing the proportion of Mature, Teen, and Kids content across platforms",
+    x = "Streaming Service",
+    y = "Proportion of Library",
+    fill = "Target Audience"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    axis.text.x = element_text(face = "bold", size = 11),
+    legend.position = "right"
+  )
+```
+
+
+
+
+
+
+
+
+
