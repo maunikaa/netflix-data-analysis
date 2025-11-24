@@ -14,16 +14,198 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+```{r listed_in}
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+netflix <- read.csv("netflix_titles.csv")
+hulu <- read.csv("hulu_titles.csv")
+amazon <- read.csv("amazon_prime_titles.csv")
+disney <- read.csv("disney_plus_titles.csv")
+
+netflix$platform <- "Netflix"
+hulu$platform <- "Hulu"
+amazon$platform <- "Amazon Prime"
+disney$platform <- "Disney+"
+
+# changed genre
+netflix <- netflix %>% 
+  select(show_id, title, listed_in)
+#netflix
+
+hulu <- hulu %>% 
+  select(show_id, title, listed_in)
+#hulu
+
+amazon <- amazon %>%
+  select(show_id, title, listed_in)
+#amazon
+
+disney <- disney %>%
+  select(show_id, title, listed_in)
+#disney
+
+names(netflix)[names(netflix) == "listed_in"] <- "genres"
+netflix$genres <- tolower(netflix$genres)
+netflix <- netflix %>%
+  separate_rows(genres, sep = ",\\s*") %>%
+  mutate(genres = trimws(genres))
+netflix <- netflix %>%
+  drop_na()
+netflix <- netflix %>% mutate(
+  genres = ifelse(genres == "^movies$", "movie", str_replace(genres, "ies$", "y")),
+  genres = ifelse(genres == "series$", "series", str_replace(genres, "s$", "")),
+  genres = str_replace(genres, ".*international.*", "international")
+)
+#netflix
+
+names(hulu)[names(hulu) == "listed_in"] <- "genres"
+hulu$genres <- tolower(hulu$genres)
+hulu <- hulu %>%
+  separate_rows(genres, sep = ",\\s*") %>%
+  mutate(genres = trimws(genres))
+hulu <- hulu %>%
+  drop_na()
+hulu <- hulu %>% mutate(
+  genres = ifelse(genres == "^movies$", "movie", str_replace(genres, "ies$", "y")),
+  genres = ifelse(genres == "series$", "series", str_replace(genres, "s$", "")),
+  genres = str_replace(genres, ".*international.*", "international")
+)
+#hulu
+
+names(amazon)[names(amazon) == "listed_in"] <- "genres"
+amazon$genres <- tolower(amazon$genres)
+amazon <- amazon %>%
+  separate_rows(genres, sep = ",\\s*") %>%
+  mutate(genres = trimws(genres))
+amazon <- amazon %>%
+  drop_na()
+amazon <- amazon %>% mutate(
+  genres = ifelse(genres == "^movies$", "movie", str_replace(genres, "ies$", "y")),
+  genres = ifelse(genres == "series$", "series", str_replace(genres, "s$", "")),
+  genres = str_replace(genres, ".*international.*", "international")
+)
+#amazon
+
+names(disney)[names(disney) == "listed_in"] <- "genres"
+disney$genres <- tolower(disney$genres)
+disney <- disney %>%
+  separate_rows(genres, sep = ",\\s*") %>%
+  mutate(genres = trimws(genres))
+disney <- disney %>%
+  drop_na()
+disney <- disney %>% mutate(
+  genres = ifelse(genres == "^movies$", "movie", str_replace(genres, "ies$", "y")),
+  genres = ifelse(genres == "series$", "series", str_replace(genres, "s$", "")),
+  genres = str_replace(genres, ".*international.*", "international")
+)
+disney
 ```
 
 ## Including Plots
 
 You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r variety}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+variety <- bind_rows(
+  netflix %>% distinct(genres) %>% mutate(platform = "Netflix"),
+  hulu %>% distinct(genres) %>% mutate(platform = "Hulu"),
+  amazon %>% distinct(genres) %>% mutate(platform = "Amazon Prime"),
+  disney %>% distinct(genres) %>% mutate(platform = "Disney+"),
+) %>%
+    group_by(platform) %>%
+    summarise(Unique_Genres = n()) %>%
+    ungroup() %>%
+    arrange(desc(Unique_Genres))
+
+variety_plot <- ggplot(variety, aes(x = platform, y = Unique_Genres, fill = platform)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Unique_Genres), vjust = -0.5, size = 4) + 
+  labs(
+    title = "Number of Unique Genres per Streaming Platform",
+        x = "Streaming Platform",
+        y = "Number of Unique Genres",
+        fill = "Platform"
+  ) +
+  scale_fill_manual(values = c("Amazon Prime" = "lightgray", "Disney+" = "darkgray", "Hulu" = "black", "Netflix" = "red")) +
+  theme(legend.position = "right",
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          axis.text = element_text(face = "bold"))
+variety_plot
 ```
+
+
+```{r common_genres}
+
+library(ggplot2)
+library(dplyr)
+library(forcats) # Useful for reordering factors
+
+all_platforms <- bind_rows(
+    netflix %>% mutate(platform = "Netflix"),
+    hulu %>% mutate(platform = "Hulu"),
+    amazon %>% mutate(platform = "Amazon Prime"),
+    disney %>% mutate(platform = "Disney+")
+)
+
+unique_genres <- all_platforms %>%
+    select(genres) %>%
+    distinct() %>%
+    arrange(genres) # Sorts them alphabetically for readability
+
+# Print the resulting list
+print(unique_genres)
+
+genre_counts <- all_platforms %>%
+    group_by(platform, genres) %>%
+    summarise(Count = n(), .groups = 'drop')
+
+platform_totals <- all_platforms %>%
+    group_by(platform) %>%
+    summarise(Total_Content = n(), .groups = 'drop')
+
+genre_proportions <- genre_counts %>%
+    left_join(platform_totals, by = "platform") %>%
+    mutate(Proportion = Count / Total_Content)
+
+top_core_genres <- genre_proportions %>%
+    group_by(genres) %>%
+    summarise(Total_Count = sum(Count)) %>%
+    arrange(desc(Total_Count)) %>%
+    head(10) %>%
+    pull(genres)
+
+plot_data <- genre_proportions %>%
+    filter(genres %in% top_core_genres) %>%
+    mutate(genres = fct_other(genres, keep = top_core_genres)) %>%
+    mutate(platform = factor(platform, levels = c("Amazon Prime", "Disney+", "Hulu", "Netflix")))
+
+custom_colors = c("red", "firebrick", "indianred2", "red3", "black", "gray50", "gray90", "gray30", "gray70", "gray80")
+
+stacked_plot <- ggplot(plot_data, aes(x = platform, y = Proportion, fill = genres)) +
+    geom_bar(stat = "identity", position = "fill") + 
+    scale_y_continuous(labels = scales::percent) + 
+    labs(
+        title = "Genre Distribution (Top 10) Across Streaming Platforms",
+        x = "Streaming Platform",
+        y = "Proportion of Content",
+        fill = "Genre"
+    ) +
+    # Use a color palette that offers enough distinct colors for the genres
+    scale_fill_manual(values = custom_colors) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1, face = "bold")
+    )
+
+stacked_plot
+```
+
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
